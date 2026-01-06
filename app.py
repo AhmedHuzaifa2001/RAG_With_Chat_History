@@ -41,25 +41,43 @@ if st.checkbox("Ready to start?"):
 
     ## process uploaded files
     if uploaded_files:
-        documents = []
+        # Get list of uploaded file names for comparison
+        uploaded_file_names = [file.name for file in uploaded_files]
+        
+        # Only process if files have changed or vectorstore doesn't exist
+        if ('uploaded_file_names' not in st.session_state or 
+            st.session_state.uploaded_file_names != uploaded_file_names or
+            'vectorstore' not in st.session_state):
+            
+            documents = []
 
-        for uploaded_file in uploaded_files:
-            temppdf = f"./temp.pdf"
+            for uploaded_file in uploaded_files:
+                temppdf = f"./temp.pdf"
 
-            with open(temppdf , "wb") as file:
-                file.write(uploaded_file.getvalue())
-                file_name = uploaded_file.name
+                with open(temppdf , "wb") as file:
+                    file.write(uploaded_file.getvalue())
+                    file_name = uploaded_file.name
 
 
-            loader = PyPDFLoader(temppdf)
-            docs = loader.load()
-            documents.extend(docs)
+                loader = PyPDFLoader(temppdf)
+                docs = loader.load()
+                documents.extend(docs)
 
-    
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=500)
-        splits = text_splitter.split_documents(documents)
-        vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
-        retriever = vectorstore.as_retriever()
+        
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=500)
+            splits = text_splitter.split_documents(documents)
+            vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
+            retriever = vectorstore.as_retriever()
+            
+            # Store in session state
+            st.session_state.vectorstore = vectorstore
+            st.session_state.retriever = retriever
+            st.session_state.uploaded_file_names = uploaded_file_names
+            st.success("Documents processed and vectorstore created!")
+        else:
+            # Reuse existing vectorstore and retriever
+            vectorstore = st.session_state.vectorstore
+            retriever = st.session_state.retriever
 
         contextualize_q_system_prompt=(
                 "Given a chat history and the latest user question"
